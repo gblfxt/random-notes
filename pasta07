@@ -42,11 +42,24 @@ SET NOCOUNT ON
 /****************************************************************************************/
 /*                      ASSISTING TEMP TABLES                                           */
 /****************************************************************************************/
-SELECT    @INCLUDESUBNET = REPLACE(@INCLUDESUBNET, N'*', N'%'),    @EXCLUDESUBNET = REPLACE(@EXCLUDESUBNET, N'*', N'%')
--- Filter table, which contains machine ids and source ids-- typeid defines filter type - 1 for source and 2 for machine-- valueId filter value - source id and machine id CREATE TABLE #SOURCEMACHINEFILTERTABLE(    TYPEID INT,     VALUEID INT)
--- Fill table #SOURCEMACHINEFILTERTABLEINSERT     INTO #SOURCEMACHINEFILTERTABLE        SELECT             p.typeId AS TYPEID,            CAST(p.value AS INT) AS VALUEID        FROM             --GetMultiParameters function splits incoming strings. It uses comma as substring delimiter             APM.GetMultiParameters(@SOURCEIDS, @MACHINEIDS) AS p 
--- Filter table for SubnetC valuesCREATE TABLE #SUBNETCFILTERTABLE(    IPID INT)
--- Insert into filter id of the SubnetC to increase performence for event tableINSERT INTO #SUBNETCFILTERTABLESELECT DISTINCT    ipidFROM    IP AS ip (NOLOCK)    JOIN APM.GetMultiParameters(CASE WHEN LEN(@INCLUDESUBNET) > 0 THEN @INCLUDESUBNET ELSE N'%' END, N'') AS p1 ON (ip.SubnetC LIKE p1.Value)    LEFT OUTER JOIN APM.GetMultiParameters(CASE WHEN LEN(@EXCLUDESUBNET) > 0 THEN @EXCLUDESUBNET ELSE N'Fake' END, N'') AS p2 ON (ip.SubnetC LIKE p2.Value)WHERE--Exclude subnets which have correspondance in @EXCLUDESUBNET parameter    p2.typeId IS NULL
+SELECT
+@INCLUDESUBNET = REPLACE(@INCLUDESUBNET, N'*', N'%'),
+@EXCLUDESUBNET = REPLACE(@EXCLUDESUBNET, N'*', N'%')
+-- Filter table, which contains machine ids and source ids
+-- typeid defines filter type - 1 for source and 2 for machine
+-- valueId filter value - source id and machine id 
+CREATE TABLE #SOURCEMACHINEFILTERTABLE(    TYPEID INT,     VALUEID INT)
+-- Fill table #SOURCEMACHINEFILTERTABLE
+INSERT     
+INTO #SOURCEMACHINEFILTERTABLE        
+SELECT             p.typeId AS TYPEID,            CAST(p.value AS INT) AS VALUEID        
+FROM             
+--GetMultiParameters function splits incoming strings. It uses comma as substring delimiter             
+APM.GetMultiParameters(@SOURCEIDS, @MACHINEIDS) AS p 
+-- Filter table for SubnetC values
+CREATE TABLE #SUBNETCFILTERTABLE(    IPID INT)
+-- Insert into filter id of the SubnetC to increase performence for event table
+INSERT INTO #SUBNETCFILTERTABLESELECT DISTINCT    ipidFROM    IP AS ip (NOLOCK)    JOIN APM.GetMultiParameters(CASE WHEN LEN(@INCLUDESUBNET) > 0 THEN @INCLUDESUBNET ELSE N'%' END, N'') AS p1 ON (ip.SubnetC LIKE p1.Value)    LEFT OUTER JOIN APM.GetMultiParameters(CASE WHEN LEN(@EXCLUDESUBNET) > 0 THEN @EXCLUDESUBNET ELSE N'Fake' END, N'') AS p2 ON (ip.SubnetC LIKE p2.Value)WHERE--Exclude subnets which have correspondance in @EXCLUDESUBNET parameter    p2.typeId IS NULL
 -- Filter table, which contains PM Statuses of EventsCREATE TABLE #PMSTATUSFILTERTABLE(    VALUEID INT)
 -- Fill table #PMSTATUSFILTERTABLEINSERT     INTO #PMSTATUSFILTERTABLE        SELECT             CAST(p.value AS INT) AS VALUEID        FROM             --GetMultiParameters function splits incoming strings. It uses comma as substring delimiter             APM.GetMultiParameters(@PMSTATUS, N'') AS p        CREATE TABLE #CLIENTEVENT (    CSEVENTID INT,    CSEVENTGROUPID INT,    EVENTCLASS NVARCHAR(50),    SOURCEID INT)
 INSERT INTO #CLIENTEVENTSELECT    e.CSEVENTID,    e.CSEVENTGROUPID,    e.EVENTCLASS,    e.SOURCEIDFROM    APM.CSEvent (NOLOCK) AS e    JOIN #SOURCEMACHINEFILTERTABLE AS f1 ON (f1.VALUEID = e.SourceId AND f1.TYPEID = 1)    JOIN #SOURCEMACHINEFILTERTABLE AS f2 ON (f2.VALUEID = e.MachineId AND f2.TYPEID = 2)    JOIN #SUBNETCFILTERTABLE AS f3 ON e.ipid = f3.IPID JOIN #PMSTATUSFILTERTABLE AS f4 ON (f4.VALUEID = e.PMStatus)     WHERE     e.ClassType = N'Performance'     AND e.UTCDate >= @STARTDATE    AND e.UTCDate < @ENDDATE
