@@ -6,8 +6,42 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 /************************************************************************************/
-/* OBJECT: Stored Procedure                                                         *//* NAME: SummaryPerformanceAnalysisReport                                           *//* USED IN: Summary Performance Analysis Report                                     *//* INPUT PARAMETERS:                                                                *//*      @STARTDATE - Start date of the priod                                        *//*      @ENDDATE - End date of the period                                           *//*      @SOURCEIDS - List of source Id, separated by comma. Exp: '1,2,3'            *//*      @MACHINEIDS - List of machine Id, separated by comma. Exp: '4,5,6'          *//*      @INCLUDESUBNET - Subnet masks list, which should be included                *//*      @EXCLUDESUBNET - Subnet mask list, which should be excluded                 *//*      @THRESHOLD - Event threshold                                                *//*      @ORDERBY - Specifies field to which sorting should be applayed              *//*                  1. Request Count (temporary obsolete)                           *//*                  2. Problems Count                                               *//*                  3. Event Count                                                  *//*                  4. MAX Event Duration                                           *//*                  5. AVG Event Duration                                           *//*                  6. Event Size                                                   *//************************************************************************************/ALTER PROCEDURE [apm].[SummaryPerformanceAnalysisReport]     @STARTDATE DATETIME,    @ENDDATE DATETIME,    @SOURCEIDS NVARCHAR(MAX),     @MACHINEIDS NVARCHAR(MAX),    @INCLUDESUBNET NVARCHAR(MAX),    @EXCLUDESUBNET NVARCHAR(MAX),    @THRESHOLD INT,    @PMSTATUS NVARCHAR(50),    @ORDERBY INT WITH RECOMPILEASBEGIN    SET NOCOUNT ON
-/****************************************************************************************//*                      ASSISTING TEMP TABLES                                           *//****************************************************************************************/
+/* OBJECT: Stored Procedure                                                         */
+/* NAME: SummaryPerformanceAnalysisReport                                           */
+/* USED IN: Summary Performance Analysis Report                                     */
+/* INPUT PARAMETERS:                                                                */
+/*      @STARTDATE - Start date of the priod                                        */
+/*      @ENDDATE - End date of the period                                           */
+/*      @SOURCEIDS - List of source Id, separated by comma. Exp: '1,2,3'            */
+/*      @MACHINEIDS - List of machine Id, separated by comma. Exp: '4,5,6'          */
+/*      @INCLUDESUBNET - Subnet masks list, which should be included                */
+/*      @EXCLUDESUBNET - Subnet mask list, which should be excluded                 */
+/*      @THRESHOLD - Event threshold                                                */
+/*      @ORDERBY - Specifies field to which sorting should be applayed              */
+/*                  1. Request Count (temporary obsolete)                           */
+/*                  2. Problems Count                                               */
+/*                  3. Event Count                                                  */
+/*                  4. MAX Event Duration                                           */
+/*                  5. AVG Event Duration                                           */
+/*                  6. Event Size                                                   */
+/************************************************************************************/
+ALTER PROCEDURE [apm].[SummaryPerformanceAnalysisReport]
+@STARTDATE DATETIME,
+@ENDDATE DATETIME,
+@SOURCEIDS NVARCHAR(MAX),
+@MACHINEIDS NVARCHAR(MAX),
+@INCLUDESUBNET NVARCHAR(MAX),
+@EXCLUDESUBNET NVARCHAR(MAX),
+@THRESHOLD INT,
+@PMSTATUS NVARCHAR(50),
+@ORDERBY INT 
+WITH RECOMPILE
+AS
+BEGIN    
+SET NOCOUNT ON
+/****************************************************************************************/
+/*                      ASSISTING TEMP TABLES                                           */
+/****************************************************************************************/
 SELECT    @INCLUDESUBNET = REPLACE(@INCLUDESUBNET, N'*', N'%'),    @EXCLUDESUBNET = REPLACE(@EXCLUDESUBNET, N'*', N'%')
 -- Filter table, which contains machine ids and source ids-- typeid defines filter type - 1 for source and 2 for machine-- valueId filter value - source id and machine id CREATE TABLE #SOURCEMACHINEFILTERTABLE(    TYPEID INT,     VALUEID INT)
 -- Fill table #SOURCEMACHINEFILTERTABLEINSERT     INTO #SOURCEMACHINEFILTERTABLE        SELECT             p.typeId AS TYPEID,            CAST(p.value AS INT) AS VALUEID        FROM             --GetMultiParameters function splits incoming strings. It uses comma as substring delimiter             APM.GetMultiParameters(@SOURCEIDS, @MACHINEIDS) AS p 
