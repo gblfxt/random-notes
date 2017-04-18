@@ -1,0 +1,84 @@
+<#
+.SYNOPSIS
+
+.DESCRIPTION
+
+.PARAMETER RackPrefix
+
+.EXAMPLE
+.\Copy-ScriptsToConsoleVMs.ps1 
+#>
+Param
+(
+    [Parameter()]$RackPrefix
+)
+Import-Module VirtualMachineManager -ea SilentlyContinue
+If (-not(Get-Command Get-SCService -ea SilentlyContinue))
+{
+    Throw "Unable to import Virtual Machine Manager Powershell module"
+}
+$ScriptRoot = "C:\CloudDeployment\DownloadedTools\SIToolkit\Hacks"
+$ScriptFolders = @('Admin','Deployment_0_Pre-CloudBuilder','Deployment_1_CloudBuilder','Deployment_2_Pre-CPS-Installer','Deployment_3_CPS-Installer','Deployment_4_Pre-Configurator','Deployment_5_Configurator','Deployment_6_Post-Configurator','Hardware\BMC','Hardware\BMC','Hardware\Storage','Inventory')
+If (-not(Test-Path $ScriptRoot))
+{
+    Throw "Unable to find scripts at $ScriptRoot"
+}
+If (-not($RackPrefix))
+{
+    Write-Verbose -Message "[$Env:COMPUTERNAME] Get Rack Prefix name from R1-CC.xml file" -Verbose
+    $CCFile = 'C:\CloudDeployment\R1-CC.xml'
+    If (Test-Path $CCFile)
+    {
+        [xml]$CCXML = Get-Content $CCFile
+        $RackPrefix = $CCXML.CustomerConfiguration.ManagementGuest.Setup.Prefix.Name
+    }
+}
+If (-not($RackPrefix))
+{
+    Throw "Unable to retrieve Rack Prefix value from R1-CC.xml - the user must specify the -RackPrefix parameter"
+}
+If (-not(Test-Connection ($RackPrefix + "-HA-VMM") -Quiet))
+{
+    Throw ("Network connection to " + $RackPrefix + "-HA-VMM failed.")
+}
+$Result = Get-SCVMMServer ($RackPrefix + "-HA-VMM")
+If (-not $Result)
+{
+    Throw ("Unable to connect to VMM server " + $RackPrefix + "-HA-VMM")
+}
+Write-Verbose -Message "[$Env:COMPUTERNAME] Get the names of Console VMs from VMM" -Verbose
+$ConsoleVMNames = (((Get-SCService -Name "Console").ComputerTiers | ? Name -eq "Admin Consoles Tier").VMs).ComputerNameString
+If ($ConsoleVMNames.Count -eq 0)
+{
+    Throw "Unable to retrieve the list of Console VMs from VMM"
+}
+$Failed = 0
+ForEach ($ConsoleVM In ($ConsoleVMNames | Sort-Object))
+{
+    $CopyToRoot = "\\" + $ConsoleVM.Split('.')[0] + "\C$\Temp\RackFactory\"
+    Write-Verbose -Message "[$Env:COMPUTERNAME] Copying scripts to $CopyToRoot" -Verbose
+    If (-not(Test-Connection $ConsoleVM -Quiet))
+    {
+        Write-Error -Message "[$Env:COMPUTERNAME] Unable to ping $CopyToRoot" -Verbose
+        $Failed++
+        Continue
+    }
+    robocopy $ScriptRoot $CopyToRoot *.* | Out-Null
+    ForEach ($SourcePath In $ScriptFolders)
+    {
+        If ($SourcePath.Split('\').Count -eq 1)
+        {
+            $CopyTo = $CopyToRoot
+        }
+        Else
+        {
+            $CopyTo = Join-Path $CopyToRoot $SourcePath
+        }
+        $CopyFrom = Join-Path $ScriptRoot $SourcePath
+        robocopy $CopyFrom $CopyTo *.* /s | Out-Null
+    }
+}
+If ($Failed -ne 0)
+{
+    Throw "Failed to connect to $Failed Console VM(s)"
+} 
