@@ -1,7 +1,19 @@
-<#.SYNOPSISCollects information from all physical and virtual machines in a rack of servers.
-.DESCRIPTIONThis script will save a XML file containing installed patches/updates, firmware/driver versions, and various software versions.It is intended to be used for validation of a small set of values and not a global inventory report.The P&U tool creates inventory reports that can be used for broader coverage.
-.PARAMETER RackNameThe XML file created will be based on this name.This parameter is only intended to help the user quickly identify what rack this report is for.
-.PARAMETER NodesAllows the user to give a specific list of Computer Names to be included in the report.
+<#
+.SYNOPSIS
+Collects information from all physical and virtual machines in a rack of servers.
+
+.DESCRIPTION
+This script will save a XML file containing installed patches/updates, firmware/driver versions, and various software versions.
+It is intended to be used for validation of a small set of values and not a global inventory report.
+The P&U tool creates inventory reports that can be used for broader coverage.
+
+.PARAMETER RackName
+The XML file created will be based on this name.
+This parameter is only intended to help the user quickly identify what rack this report is for.
+
+.PARAMETER Nodes
+Allows the user to give a specific list of Computer Names to be included in the report.
+
 .PARAMETER NodeTypesAllows the user to target a specific "Type" of system.By default all types will be included.
 .PARAMETER RackNumberIf the RackFactory naming standards are followed the script will attempt to discover the cluster names based on this RackNumber value.If non-standard names are used the individual cluster names will need to be supplied by the user.
 .PARAMETER MSUClusterSpecify the name of the Management Cluster.This only needs to be supplied if the script is unable to determine this value automatically.
